@@ -137,13 +137,6 @@
             localStorage.setItem('chatteria_session_sender', sessionSenderId);
         }
 
-        async function loadChat() {
-            const response = await callFetch('/api/v1/chat/load');
-            response.result.data.forEach(row => {
-                appendMessage(row.message, row.role);
-            });
-        }
-
         async function callFetch(path, messageText = '') {
             const response = await fetch(ODOO_CHAT_URL + path, {
                 method: 'POST',
@@ -166,6 +159,15 @@
                 throw new Error("HTTP Error Status: " + response.status);
             }
             return await response.json();
+        }
+
+        async function loadChat() {
+            const response = await callFetch('/api/v1/chat/load');
+            if (response.result.data) {
+                response.result.data.forEach(row => {
+                    appendMessage(row.message, row.role);
+                });
+            }
         }
 
         function toggleChat() {
@@ -191,6 +193,9 @@
 
             try {
                 const payload = await callFetch('/api/v1/chat', messageText);
+
+                console.log(payload);
+
                 if (payload.result && payload.result.status === 'success') {
                     appendMessage(payload.result.response, 'bot');
                 } else {

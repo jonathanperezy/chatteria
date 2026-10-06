@@ -8,7 +8,6 @@ from odoo.http import request
 _logger = logging.getLogger(__name__)
 
 
-
 class OdooAIChatController(http.Controller):
 
     @http.route('/chatteria/source.js', methods=['GET'], auth='public', csrf=False, type='http')
@@ -104,15 +103,30 @@ class OdooAIChatController(http.Controller):
     def _check_api_access(self, **kwargs):
         """ Check if the api parameters are correct """
         if not kwargs.get('sender_id'):
-            return {'status': 'error', 'message': 'Missing parameters: message and sender_id are required.'}
+            return None, {'status': 'error', 'message': 'Missing parameters: message and sender_id are required.'}
 
         received_token = kwargs.get('secure_token')
         uid = request.env['res.users.apikeys'].sudo()._check_credentials(
             scope='rpc', key=received_token
         )
+
         if not received_token or not uid:
             _logger.warning(f"Unauthorized JSON-RPC access attempt.")
             return None, {'status': 'error', 'message': 'Unauthorized access.'}
+
+        request.update_env(user=uid)
+        company = request.env.user.company_id
+
+        if not company or not company.api_gemini_token:
+            return None, {'status': 'error', 'message': 'Gemini API key is not configured.'}
+
+        if company.allowed_url_ids:
+            urls = company.allowed_url_ids.filtered(
+                lambda url: url.available
+            ).mapped('name')
+
+            if request.httprequest.headers.get('Referer') not in urls:
+                return None, {'status': 'error', 'message': 'Url unauthorized.'}
 
         return uid, {}
 
@@ -128,7 +142,7 @@ class OdooAIChatController(http.Controller):
         channel = kwargs.get('channel', 'web')
             
         # Fetch Past Conversation Context from DB
-        past_records = request.env['ai.chat.history'].sudo().search([('sender_id', '=', sender_id)], limit=50)
+        past_records = request.env['ai.chat.history'].search([('sender_id', '=', sender_id)], limit=50)
         
         chat_contents = []
         for record in past_records:
@@ -165,12 +179,7 @@ class OdooAIChatController(http.Controller):
             from google import genai
             from google.genai import types
             
-            request.update_env(user=uid)
-
             company = request.env.company
-            # Fetch Gemini API Key
-            if not company or not company.api_gemini_token:
-                return {'status': 'error', 'message': 'Gemini API key is not configured.'}
             
             client = genai.Client(api_key=company.api_gemini_token)
 
