@@ -127,7 +127,7 @@ class OdooAIChatController(http.Controller):
                     lambda url: url.available
                 ).mapped('name')
             )
-            if request.httprequest.headers.get('Referer') not in urls:
+            if request.httprequest.headers.get('Origin') not in urls:
                 return None, {'status': 'error', 'message': 'Url unauthorized.'}
 
         return uid, {}
