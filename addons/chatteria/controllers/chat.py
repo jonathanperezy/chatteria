@@ -121,10 +121,12 @@ class OdooAIChatController(http.Controller):
             return None, {'status': 'error', 'message': 'Gemini API key is not configured.'}
 
         if company.allowed_url_ids:
-            urls = company.allowed_url_ids.filtered(
-                lambda url: url.available
-            ).mapped('name')
-
+            # find over the company urls (as string ,) to find urls here.
+            urls = ', '.join(
+                company.allowed_url_ids.filtered(
+                    lambda url: url.available
+                ).mapped('name')
+            )
             if request.httprequest.headers.get('Referer') not in urls:
                 return None, {'status': 'error', 'message': 'Url unauthorized.'}
 
