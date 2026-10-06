@@ -11,8 +11,6 @@
     ],
     'pre_init_hook': 'pre_init_hooks',
     'data': [
-        'data/res_users_data.xml',
-
         'security/security.xml',
         'security/admin/ir.model.access.csv',
         'security/gemini/ir.model.access.csv',

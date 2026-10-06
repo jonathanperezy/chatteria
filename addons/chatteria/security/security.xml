@@ -1,11 +1,10 @@
 <odoo>
     <record id="group_gemini" model="res.groups">
         <field name="name">Gemini Group</field>
-    </record>
-
-    <record id="api_gemini_user" model="res.users">
-        <field name="name">API Gemini User</field>
-        <field name="login">4pi_g3m1n1_us3r</field>
-        <field name="group_ids" eval="[(4, ref('chatteria.group_gemini'))]" />
+        <field name="implied_ids" eval="[
+            (4, ref('base.group_user')),
+            (4, ref('sales_team.group_sale_salesman_all_leads')),
+            (4, ref('sales_team.group_sale_salesman'))
+        ]"/>
     </record>
 </odoo>
