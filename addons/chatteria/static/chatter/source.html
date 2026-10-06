@@ -1,0 +1,222 @@
+<div id="chatteria" source_url="--source-url--" secure_token="--source-token--">
+    <style>
+        #chat-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1377ff;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        #chat-window {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 350px;
+            height: 450px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        #chat-header {
+            background: #1377ff;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 75%;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        .user {
+            background: #e1ffc7;
+            align-self: flex-end;
+        }
+
+        .bot {
+            background: #f1f0f0;
+            align-self: flex-start;
+        }
+
+        #chat-input-area {
+            display: flex;
+            border-top: 1px solid #ccc;
+            padding: 10px;
+            background: #fff;
+        }
+
+        #chat-input {
+            flex: 1;
+            border: 1px solid #ccc;
+            padding: 8px;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        #send-btn {
+            background: #1377ff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin-left: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #send-btn:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+    </style>
+
+    <button id="chat-button" onclick="toggleChat()">Chatea con la IA</button>
+
+    <div id="chat-window">
+        <div id="chat-header">
+            <span>Asistente Odoo IA</span>
+            <button onclick="toggleChat()"
+                style="background:none; border:none; color:white; cursor:pointer; font-size:16px;">✕</button>
+        </div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Pregunta por existencias o precios..."
+                onkeypress="handleKeyPress(event)">
+            <button id="send-btn" onclick="sendMessage()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const main = document.getElementById('chatteria');
+        const ODOO_CHAT_URL = main.getAttribute('source_url');
+        const SECURE_TOKEN = main.getAttribute('secure_token');
+        const remind = --remind--;
+
+        main.setAttribute('source_url', '');
+        main.setAttribute('secure_token', '');
+
+        let sessionSenderId = null;
+
+        if (remind) {
+            sessionSenderId = localStorage.getItem('chatteria_session_sender');
+        }
+
+        if (!sessionSenderId) {
+            sessionSenderId = "web_" + Math.random().toString(36).substring(2, 9);
+        }
+
+        if (remind && sessionSenderId) {
+            localStorage.setItem('chatteria_session_sender', sessionSenderId);
+        }
+
+        async function loadChat() {
+            const response = await callFetch('/api/v1/chat/load');
+            response.result.data.forEach(row => {
+                appendMessage(row.message, row.role);
+            });
+        }
+
+        async function callFetch(path, messageText = '') {
+            const response = await fetch(ODOO_CHAT_URL + path, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    method: "call",
+                    params: {
+                        secure_token: SECURE_TOKEN,
+                        message: messageText,
+                        sender_id: sessionSenderId,
+                        channel: 'web',
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("HTTP Error Status: " + response.status);
+            }
+            return await response.json();
+        }
+
+        function toggleChat() {
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.style.display = chatWindow.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') sendMessage();
+        }
+
+        async function sendMessage() {
+            const inputElement = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-btn');
+            const messageText = inputElement.value.trim();
+
+            if (!messageText) return;
+
+            appendMessage(messageText, 'user');
+            inputElement.value = '';
+            inputElement.disabled = true;
+            sendButton.disabled = true;
+
+            try {
+                const payload = await callFetch('/api/v1/chat', messageText);
+                if (payload.result && payload.result.status === 'success') {
+                    appendMessage(payload.result.response, 'bot');
+                } else {
+                    const errorReason = payload.result?.message || payload.error?.message || "Error al procesar consulta.";
+                    appendMessage(errorReason, 'bot');
+                }
+
+            } catch (error) {
+                console.error("API Connection Error:", error);
+                appendMessage("Error de conexión con el servidor Odoo.", 'bot');
+            } finally {
+                inputElement.disabled = false;
+                sendButton.disabled = false;
+                inputElement.focus();
+            }
+        }
+
+        function appendMessage(text, senderRole) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', senderRole);
+            messageDiv.innerText = text;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        remind && sessionSenderId && loadChat();
+    </script>
+</div>

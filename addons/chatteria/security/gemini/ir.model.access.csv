@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gemini_company,access_gemini_company_api,base.model_res_company,chatteria.group_gemini,1,0,0,0
+access_gemini_ai_chat_history,access_gemini_ai_chat_history_api,chatteria.model_ai_chat_history,chatteria.group_gemini,1,0,1,0
+access_gemini_api_gemini_allowed_urls,access_gemini_api_gemini_allowed_urls,chatteria.model_api_gemini_allowed_urls,chatteria.group_gemini,1,0,0,0
